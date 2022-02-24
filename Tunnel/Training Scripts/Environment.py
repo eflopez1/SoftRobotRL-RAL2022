@@ -267,7 +267,7 @@ class pymunkEnv(Env):
 
         #### Initiate Observation
         ac = np.array([0]*2*self.numBots) # Take no action
-        observation, _, self.previousDistance, _ = self.getOb(ac)
+        observation, _, self.previousDistance, _ = self.getOb()
         
         return observation
     
@@ -312,7 +312,7 @@ class pymunkEnv(Env):
         self.timestep+=1
         
         # Gather information
-        obs, systemCenter, distanceToTarget, sysNormForce = self.getOb(ac)
+        obs, systemCenter, distanceToTarget, sysNormForce = self.getOb()
         
         rew = self.calcRew(distanceToTarget, sysNormForce)
         isDone, rew = self.isDone(rew, systemCenter, distanceToTarget)
@@ -330,10 +330,10 @@ class pymunkEnv(Env):
     
     
     
-    def getOb(self, ac):
+    def getOb(self):
         
-        runTime = [self.timestep/self.maxNumSteps]
-        
+        sysNormForce = None
+
         botPos = np.zeros((self.numBots,2))
         botVel = np.zeros((self.numBots,2))
         for index, bot in enumerate(self.bots):
@@ -348,23 +348,13 @@ class pymunkEnv(Env):
         systemCenterNorm = systemCenter[0] / self.width, systemCenter[1]/self.height
         systemCenterNorm = np.asarray(systemCenterNorm)
         
-        avg_velocity = np.mean(botVel, axis=0)
 
         distanceToTarget = np.linalg.norm(systemCenter) # This value is in meters
         
-        botForces = np.zeros(self.numBots*2)
-        for index, action in enumerate(ac):
-            botForces[index] = action
-        
-        #### For Energy Consumption
-        sysNormForce=0
-        if self.energy:
-            sysNormForce = np.linalg.norm(botForces*self.numStepsPerStep)
         
         # Normalizing observation
         botPos[:,0]=botPos[:,0]/(self.width) #Normalizing X-Coordinate
         botPos[:,1]=botPos[:,1]/(self.height)                  #Normalizing Y-Coordinate
-        # botVel /= self.maxVelocity                             #Normalizing Velocity
         
         extForces = np.abs(np.concatenate((self.extForcesX, self.extForcesY)))
         extForces /= self.forceGain
@@ -402,13 +392,7 @@ class pymunkEnv(Env):
 
         progress = self.previousDistance - distanceToTarget # Relative to the velocity or speed for arriving at target
         rew = progress*200
-            
-        # if progress > 0:
-        #     rew += 1
-
-        # Penalty for taking time
-        # rew -= (self.timestep/self.maxNumSteps)
-            
+        
         return rew
     
     

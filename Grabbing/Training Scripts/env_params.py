@@ -1,9 +1,3 @@
-"""
-This file contains parameters for the execution of grabbing
-"""
-
-# Basic libraries needed
-from io import SEEK_CUR
 import pdb
 import sys
 import matplotlib.pyplot as plt
@@ -71,17 +65,11 @@ binding_spring_K = .5
 # Defining system radius
 R = calc_JAMoEBA_Radius(skinRadius,skinRatio,botRadius,numBots)
 
-#Screen parameters (Taken from my big screen (; )
-# I.e. use this if operating on any other system
-width = 3096
-height = 1296
-
+#Screen parameters
 width = 1440
 height=1080
 
 # Esteban's desktop:
-# width = floor(GetSystemMetrics(0)*.9)
-# height = floor(GetSystemMetrics(1)*.9)
 maxNumSteps = botTimestepDict[numBots]
 ppm = botPPMdict[numBots] # Pixels Per Meter
 
@@ -91,7 +79,7 @@ convert = Convert(botPPMdict[numBots])
 render = True
 saveVideo = False
 dataCollect = False
-experimentName = "Rew Test" # Make sure the name has {} to allow for additional formatting!
+experimentName = "Rew Test"
 
 """
 _____________________________________________________________________

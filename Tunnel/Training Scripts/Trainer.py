@@ -6,7 +6,7 @@ if __name__ == '__main__':
     from env_params import *
 
     # Importing RL parameters and dependencies
-    from RL_params_tf1 import *
+    from RL_params import *
 
     # Creating directory to save all results in
     mainDirectory = str(pathlib.Path(__file__).parent.absolute()) # Get the path of this file
@@ -14,9 +14,9 @@ if __name__ == '__main__':
     os.makedirs(savefile, exist_ok=True)
     
     # Importing and saving these files
-    import env_params, RL_params_tf1
+    import env_params, RL_params
     copyfile(master_env.__file__,savefile+'Environment.py'.format(str(experimentNum)))
-    copyfile(RL_params_tf1.__file__,savefile+'RL_params_tf1.py'.format(str(experimentNum)))
+    copyfile(RL_params.__file__,savefile+'RL_params.py'.format(str(experimentNum)))
     copyfile(env_params.__file__,savefile+'env_params.py'.format(str(experimentNum)))
     copyfile(__file__, savefile+'PPO_Trainer_tf1.py'.format(str(experimentNum)))
    
@@ -34,25 +34,19 @@ if __name__ == '__main__':
     env = make_vec_env(pymunkEnv, n_envs= nEnvs, env_kwargs=envParams, vec_env_cls=SubprocVecEnv, monitor_dir = savefile)
 
     # # Create the model with expert trajectories
-    # model = PPO2("MlpPolicy", env, verbose=1,
-    #                 gamma=gamma, 
-    #                 n_steps = n_steps, 
-    #                 ent_coef = ent_coef,
-    #                 learning_rate = learning_rate,
-    #                 vf_coef = vf_coef,
-    #                 nminibatches = nminibatches,
-    #                 noptepochs = noptepochs,
-    #                 cliprange = cliprange,
-    #                 tensorboard_log = savefile,
-    #                 seed = seed,
-    #                 policy_kwargs=policy_kwargs)
+    model = PPO2("MlpPolicy", env, verbose=1,
+                    gamma=gamma, 
+                    n_steps = n_steps, 
+                    ent_coef = ent_coef,
+                    learning_rate = learning_rate,
+                    vf_coef = vf_coef,
+                    nminibatches = nminibatches,
+                    noptepochs = noptepochs,
+                    cliprange = cliprange,
+                    tensorboard_log = savefile,
+                    seed = seed,
+                    policy_kwargs=policy_kwargs)
 
-    # Loading a model which was already started
-    model = PPO2.load(
-        'Experiment 16b 2022-01-10/rl_model_21650000_steps.zip',
-        env=env,
-        tensorboard_log = savefile
-    )
     
     # Train the model
     learn_start = time.time()

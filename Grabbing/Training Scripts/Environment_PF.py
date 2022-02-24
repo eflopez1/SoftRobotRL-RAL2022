@@ -1,14 +1,3 @@
-"""
-This environment will implement an observation to be fed into a CNN
-
-Use this in the future to add collision detection in the observation space:
-    https://stackoverflow.com/questions/50815789/non-colliding-objects-which-has-colliding-pairs-pymunk-pygame
-    
-This example shows how to draw collisions:
-    https://github.com/viblo/pymunk/blob/master/examples/contact_and_no_flipy.py
-    
-"""
-
 import pymunk
 import pygame
 import sys
@@ -94,11 +83,8 @@ class pymunkEnv(Env):
 
         # Square size
         self.squareLength = self.R * .75
-        buffer = self.R
 
         # Object Starting Position
-        # objectX = self.width - (self.squareLength/2 + wallThickness/2)        # Start on right side of environment
-        # objectX = self.width - (self.squareLength/2 + wallThickness/2 + buffer)          # Start on right side of environment with some wiggle room 
         objectX = wallThickness*3 + 2.1*(R + botRadius*2) # Start on left side of environment
         objectY = self.height/2
         self.objectPosition = np.array([objectX, objectY])
@@ -109,11 +95,6 @@ class pymunkEnv(Env):
 
         # Start location of JAMoEBA system
         self.start_options = [
-            # [objectX, objectY + R + self.squareLength + botRadius],    # Above the box
-            # [objectX, objectY - (R + self.squareLength + botRadius)],  # Below the box
-            # [objectX - (R + self.squareLength + botRadius), objectY]#,  # Left side of box
-            # [objectX + (R + self.squareLength + botRadius), objectY],     # Right side of box
-            # [objectX - (R + 2*botRadius), self.height/2] # ???
             [wallThickness*3 + R + botRadius*2, objectY] # Left side of screen
         ]
         self.num_starts = len(self.start_options)
@@ -121,7 +102,6 @@ class pymunkEnv(Env):
         self.systemStart = self.start_options[whichStart]
 
         # Location to move object to
-        # self.targetLoc = R + wallThickness, self.height/2
         self.targetLoc = np.array([self.width/2, self.height/2])
         self.targetDistance = np.linalg.norm(self.targetLoc - np.asarray(self.objectPosition)) # Defining the initial distance to target
             
@@ -316,12 +296,6 @@ class pymunkEnv(Env):
         targetLoc = np.asarray(targetLoc)
         self.targetLoc = self.convert.Pixels2Meters(targetLoc)
 
-        # Pin the square to a pin joint
-        # pin_kwargs = dict(
-        #     space=self.space,
-        #     square=self.square
-        # )
-        # pin_square(**pin_kwargs)
 
         # Store all objects in a single list to add friction
         if not self.square.static:
@@ -336,10 +310,6 @@ class pymunkEnv(Env):
         pot_field = create_pot_field(self)
         self.control = controller(pot_field)
 
-        # Bound the square using springs
-        # Only use this if it is starting on the right wall!
-        # self.binding_springs = bind_object(self.space, self.square.body, wall4_body, length, bind_spring_K) # Returns the binding springs
-
         #### Collision Handler
         # Reports collisions with walls, objects, and obstacles
         for bot in self.bots:
@@ -353,8 +323,7 @@ class pymunkEnv(Env):
             self.movingObjectPosition = []
 
         #### Initiate Observation
-        ac = np.array([0]*2*self.numBots) # Take no action
-        observation, _, self.previousDistance, _ = self.getOb(ac)
+        observation, _, self.previousDistance, _ = self.getOb()
         return observation
     
     
@@ -402,17 +371,6 @@ class pymunkEnv(Env):
                 botPos = bot.body.position
                 bot.body.apply_force_at_world_point((xForce, yForce), (botPos.x, botPos.y))
 
-            squarePos = self.square.body.position
-
-            # Check if square is a distance away from wall. 
-            # If yes, release it!
-            squarePosReal = self.convert.Pixels2Meters(np.asarray(squarePos))
-            dis_from_wall = np.linalg.norm(squarePosReal - self.wall_loc)
-            if dis_from_wall > .3 and not self.binding_springs_removed:
-                self.binding_springs_removed = True
-                # for constraint in self.binding_springs:
-                #     self.space.remove(constraint)
-
         # Taking a step in the environment
             self.space.step(self.dt)
             self.time += self.dt
@@ -421,7 +379,7 @@ class pymunkEnv(Env):
         self.timestep+=1
         
         # Gather information
-        obs, systemCenter, distanceToTarget, distanceToSquare = self.getOb(self.last_action)
+        obs, systemCenter, distanceToTarget, distanceToSquare = self.getOb()
         self.last_action = ac
             
         rew = self.calcRew(distanceToTarget, distanceToSquare)
@@ -437,7 +395,7 @@ class pymunkEnv(Env):
         return obs, rew, isDone, self.info
     
     
-    def getOb(self, ac):
+    def getOb(self):
         
         runTime = [self.timestep/self.maxNumSteps] # Can use if you want to feed the system information on how much time is left
         
@@ -466,20 +424,6 @@ class pymunkEnv(Env):
 
         # Calculating the distance to 
         distanceToSquare = norm(np.mean(botPos,axis=0))
-        
-        botForces = np.zeros((self.numBots,2))
-        for index in range(self.numBots):
-            botForces[index] = ac[2*index], ac[2*index+1]
-        
-        #### Calculating penalty for not moving (based on velocity)
-        if self.velocityPenalty:
-            self.velRecent = np.roll(self.velRecent,1)
-            self.velRecent[0] = np.linalg.norm(squareVel)
-
-        #### For Energy Consumption
-        sysNormForce=0
-        if self.energy:
-            sysNormForce = norm(botForces*self.numStepsPerStep)
 
         # Normalizing observation
         botPos[:,0]=botPos[:,0]/(self.width)                   #Normalizing X-Coordinate
@@ -487,28 +431,13 @@ class pymunkEnv(Env):
         botVel /= self.maxVelocity                             #Normalizing Velocity
 
         # Normalizing square data
-        squareObsLocation = [squareLocation[0]/self.width, squareLocation[1]/self.height] # Normalized square location
         squareVel = np.asarray(squareVel) / self.maxVelocity
         
-        extForcesX = np.abs(self.extForcesX) / self.forceGain
-        extForcesY = np.abs(self.extForcesY) / self.forceGain
-        extForces = np.vstack((extForcesX, extForcesY)).T
-        
-        # # Adding Bot information to observation
-        # observation[:,0:2] = botPos     # Positions
-        # observation[:,2:4] = botVel     # Velocities
-        # observation[:,4:6] = extForces  # External forces on bots
-        # observation[:,6:] = botForces
-
-        # Adding square information to observation
-        # observation[-1,:] = np.concatenate((squareObsLocation, squareVel, [squareTheta, squareOmega, 0, 0]))
-        # observation = observation[None]
-        # observation = np.swapaxes(observation,0,1)
-
         # Creating an observation
         observation = np.concatenate((squareLocation, [squareTheta], botPos.flatten(), botVel.flatten(), self.botContacts))
         
         return observation, squareLocation, distanceToTarget, distanceToSquare
+
 
     def reportContact(self, contactPair, impulse):
         botIndex = max(contactPair)
@@ -528,10 +457,6 @@ class pymunkEnv(Env):
     
     
     def calcRew(self, distanceToTarget, distanceToSquare):
-        """
-        - distanceToTarget: The distance of the square object to the target location
-        - distanceToSquare: The distance of the system center to the square's location
-        """
         rew = 0
         
         progress = self.previousDistance - distanceToTarget # Relative to the velocity or speed for arriving at target
@@ -541,38 +466,10 @@ class pymunkEnv(Env):
         omega = np.abs(self.square.body.angular_velocity)
         rew += omega*10
 
-        # closer = ((self.targetDistance/self.targetDistance) - (distanceToTarget/self.targetDistance))*10
-        # rew += closer
-        
-        # For now, let's reward the system for getting as many bots in contact with the object as possible
-        # X_contacts = np.count_nonzero(self.extForcesX)
-        # Y_contacts = np.count_nonzero(self.extForcesY)
-        # num_bots_in_contact = np.max([X_contacts, Y_contacts])
-        # rew = num_bots_in_contact - distanceToSquare
-            
-        # Reward for spinning the square
-        # omega = self.square.body.angular_velocity
-        # rew = 5*omega # Receives reward for spinning in one direction
-
-        # Reward for squeezing the object
-        extForces = np.abs(np.concatenate((self.extForcesX, self.extForcesY)))
-        normAppliedForce = np.linalg.norm(extForces)
-        netAppliedX = np.abs(np.sum(self.extForcesX))
-        netAppliedY = np.abs(np.sum(self.extForcesY))
-        netAppliedForce = netAppliedX + netAppliedY
-        rew_force= normAppliedForce #- netAppliedForce*.65)
-        rew += np.clip(rew_force,-1,1)
-
-        # Because impulses can cause very large forces for a brief moment, we must cap the reward
-        # rew = np.clip(rew,-1,1)
-
         return rew
     
     
     def isDone(self, rew, systemCenter, distanceToTarget):
-        """
-        Can return later on an add penalties for taking too long or surpassing the target
-        """
         done=False
         # Takes too long to complete
         if self.timestep>self.maxNumSteps:
@@ -582,12 +479,6 @@ class pymunkEnv(Env):
         if distanceToTarget < self.R/10:
             rew += 10
             done=True
-
-        if self.velocityPenalty and self.time > 40: # Only consider this after the first 40 seconds
-            thresh = .001 
-            if np.mean(self.velRecent)< thresh:
-                rew -= 10
-                done = True
 
         return done, rew
             
@@ -610,7 +501,6 @@ class pymunkEnv(Env):
             """
             self.drawOptions = DrawOptions(self.screen)
             self.drawOptions.flags = pymunk.SpaceDebugDrawOptions.DRAW_SHAPES 
-            # self.drawOptions.flags |= pymunk.SpaceDebugDrawOptions.DRAW_CONSTRAINTS # Uncomment to allow constraints to be drawn
             self.drawOptions.shape_outline_color = (0,0,0,255)
             
             pymunk.pygame_util.positive_y_is_up=True

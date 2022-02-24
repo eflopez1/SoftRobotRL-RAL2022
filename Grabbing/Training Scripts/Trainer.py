@@ -1,15 +1,9 @@
-# %% Main cell
-"""
-Main execution script for training the obstacle field environment
-Uses stable baselines 2 as their means of describing the environment.
-"""
-
 if __name__ == '__main__':
     # Importing Environment and environment dependencies
     from env_params import *
 
     # Importing RL parameters and dependencies
-    from RL_params_tf1 import *
+    from RL_params import *
 
     # Creating directory to save all results in
     mainDirectory = str(pathlib.Path(__file__).parent.absolute()) # Get the path of this file
@@ -17,9 +11,9 @@ if __name__ == '__main__':
     os.makedirs(savefile, exist_ok=True)
     
     # Importing and saving these files
-    import env_params, RL_params_tf1
+    import env_params, RL_params
     copyfile(master_env.__file__,savefile+'Environment_PF.py')
-    copyfile(RL_params_tf1.__file__,savefile+'RL_params_tf1.py')
+    copyfile(RL_params.__file__,savefile+'RL_params.py')
     copyfile(env_params.__file__,savefile+'env_params.py')
     copyfile(__file__, savefile+'Trainer.py')
    
@@ -71,7 +65,6 @@ if __name__ == '__main__':
     del env
     
     # Model Evaluation
-    # We will now test the agent!
     if test:
         os.chdir(savefile)
     

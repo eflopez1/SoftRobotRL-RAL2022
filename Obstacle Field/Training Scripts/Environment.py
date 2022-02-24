@@ -1,12 +1,3 @@
-
-"""
-Use this in the future to add collision detection in the observation space:
-    https://stackoverflow.com/questions/50815789/non-colliding-objects-which-has-colliding-pairs-pymunk-pygame
-    
-This example shows how to draw collisions:
-    https://github.com/viblo/pymunk/blob/master/examples/contact_and_no_flipy.py
-"""
-
 import pymunk
 import pygame
 import sys
@@ -106,7 +97,6 @@ class pymunkEnv(Env):
             self.velRecent = np.zeros(30) # We will store 30 timesteps worth of information
 
         self.state_size = self.numBots*5 # botRePosition (x,y), botContacts ## self.getOb()
-        # self.state_size = 2 + self.numBots # Center Position, bot contacts ## self.getOb2()
         self.action_size = self.numBots*2
         force_low, force_high = -1.0, 1.0
         
@@ -245,8 +235,7 @@ class pymunkEnv(Env):
         obsRadius = 2*R
         fieldWidth = targetDistance - 4*obsRadius
         fieldHeight = height-2*obsRadius
-        minObsDistance = 4.5*R # Stars and Squares
-        # minObsDistance = 6*R # Circles
+        minObsDistance = 4.5*R # Stars
         poisSamples = Poisson_Sampling(minObsDistance,fieldWidth,fieldHeight)
         obsCoordinates = poisSamples.get_samples()
         obsKwargs = {'space':self.space,
@@ -286,9 +275,7 @@ class pymunkEnv(Env):
             self.interiorPositions = []
 
         #### Initiate Observation
-        ac = np.array([0]*2*self.numBots) # Take no action
-        observation, _, self.previousDistance, _ = self.getOb(ac)
-        self.last_rotation = 0 # If using self.getOb2, we must rotate the action vector the same amount as the observation!
+        observation, _, self.previousDistance, _ = self.getOb()
         return observation
     
     
@@ -336,7 +323,7 @@ class pymunkEnv(Env):
         self.timestep+=1
         
         # Gather information
-        obs, systemCenter, distanceToTarget, sysNormForce = self.getOb(ac)
+        obs, systemCenter, distanceToTarget, sysNormForce = self.getOb()
         
         rew = self.calcRew(distanceToTarget, sysNormForce)
         isDone, rew = self.isDone(rew, systemCenter, distanceToTarget)
@@ -354,10 +341,8 @@ class pymunkEnv(Env):
     
     
     
-    def getOb(self, ac):
-
-        runTime = [self.timestep/self.maxNumSteps]
-        
+    def getOb(self):
+        sysNormForce = None
         botPos = np.zeros((self.numBots,2))
         botVel = np.zeros((self.numBots,2))
         for index, bot in enumerate(self.bots):
@@ -372,32 +357,6 @@ class pymunkEnv(Env):
         
         distanceToTarget = np.linalg.norm(systemCenter) # This value is in meters
         
-        botForces = np.zeros(self.numBots*2)
-        for index, action in enumerate(ac):
-            botForces[index] = action
-        
-        #### For Energy Consumption
-        sysNormForce=0
-        if self.energy:
-            sysNormForce = np.linalg.norm(botForces*self.numStepsPerStep)
-        
-        #### Calculating Kinetic Energy of system
-        if self.kineticEnergy:
-            self.KE = np.roll(self.KE,1)
-            KE_now = 0
-            for obj in self.jamoeba:
-                mass = obj.shape.mass
-                speed = self.convert.Pixels2Meters(obj.body.velocity.length)
-                KE_now += 0.5*mass*speed**2
-            self.KE[0] = KE_now
-            
-        #### Calculating penalty for not moving (based on velocity)
-        if self.velocityPenalty:
-            self.velRecent = np.roll(self.velRecent,1)
-            velX = np.mean(botVel[:,0])
-            velY = np.mean(botVel[:,1])
-            self.velRecent[0] = np.linalg.norm([velX,velY])
-            
         # Normalizing observation
         botPos[:,0]=botPos[:,0]/(self.width) #Normalizing X-Coordinate
         botPos[:,1]=botPos[:,1]/(self.height)                  #Normalizing Y-Coordinate
@@ -406,89 +365,9 @@ class pymunkEnv(Env):
         extForces = np.abs(np.concatenate((self.extForcesX, self.extForcesY)))
         extForces /= self.forceGain
         
-        # observation = np.concatenate((botPos.flatten(), botVel.flatten(), botForces, extForces, runTime))
         observation = np.concatenate((botPos.flatten(), botVel.flatten(), self.botContacts))
-        # observation = np.concatenate((systemCenter, self.botContacts))
         
         return observation, systemCenter, distanceToTarget, sysNormForce
-
-
-
-
-    def getOb2(self, ac):
-        
-        runTime = [self.timestep/self.maxNumSteps]
-        
-        botPos = np.zeros((self.numBots,2))
-        botVel = np.zeros((self.numBots,2))
-        for index, bot in enumerate(self.bots):
-            currentBotPos = self.convert.Pixels2Meters(bot.body.position.x), self.convert.Pixels2Meters(bot.body.position.y)
-            currentBotVel = self.convert.Pixels2Meters(bot.body.velocity.x), self.convert.Pixels2Meters(bot.body.velocity.y)
-            
-            # Define position as relative to the target
-            botPos[index,:] = np.array(self.targetLoc) - np.array(currentBotPos)
-            botVel[index,:] = currentBotVel
-
-        systemCenter = np.mean(botPos, axis=0)
-        
-        distanceToTarget = np.linalg.norm(systemCenter) # This value is in meters
-        
-        botForces = np.zeros(self.numBots*2)
-        for index, action in enumerate(ac):
-            botForces[index] = action
-        
-        #### For Energy Consumption
-        sysNormForce=0
-        if self.energy:
-            sysNormForce = np.linalg.norm(botForces*self.numStepsPerStep)
-        
-        #### Calculating Kinetic Energy of system
-        if self.kineticEnergy:
-            self.KE = np.roll(self.KE,1)
-            KE_now = 0
-            for obj in self.jamoeba:
-                mass = obj.shape.mass
-                speed = self.convert.Pixels2Meters(obj.body.velocity.length)
-                KE_now += 0.5*mass*speed**2
-            self.KE[0] = KE_now
-            
-        #### Calculating penalty for not moving (based on velocity)
-        if self.velocityPenalty:
-            self.velRecent = np.roll(self.velRecent,1)
-            velX = np.mean(botVel[:,0])
-            velY = np.mean(botVel[:,1])
-            self.velRecent[0] = np.linalg.norm([velX,velY])
-            
-        # We are interested in finind the center-most bot at the front
-        mean_y = np.mean(botPos[:,1])
-        order = find_nearest(botPos[:,1], mean_y, 3) # Getting the 3 bots with closest y-position to the average
-        currentMinBotX = np.inf # We consider the bot closest to the target as the one of interest
-        for botIdx in order:
-            botX = botPos[botIdx,0]
-            if botX < currentMinBotX:
-                bestbotIdx = botIdx
-                currentMinBotX = botX
-
-        # Normalizing observation
-        botPos[:,0]=botPos[:,0]/(self.width) #Normalizing X-Coordinate
-        botPos[:,1]=botPos[:,1]/(self.height)                  #Normalizing Y-Coordinate
-        systemCenter[0] /= self.width
-        systemCenter[1] /= self.height
-        # botVel /= self.maxVelocity                             #Normalizing Velocity
-        
-        extForces = np.abs(np.concatenate((self.extForcesX, self.extForcesY)))
-        extForces /= self.forceGain
-
-        # We roll the bot contacts so the 'first' bot is the first index
-        botContacts = np.roll(self.botContacts,-bestbotIdx)
-        self.last_rotation = bestbotIdx
-        
-        observation = np.concatenate((systemCenter, botContacts))
-        
-        return observation, systemCenter, distanceToTarget, sysNormForce
-
-    
-
 
     def reportContact(self, contactPair, impulse):
         botIndex = max(contactPair)
@@ -509,44 +388,15 @@ class pymunkEnv(Env):
 
     
     def calcRew(self, distanceToTarget, sysNormForce):
-
-
-
         progress = self.previousDistance - distanceToTarget # Relative to the velocity or speed for arriving at target
                     
         rew = progress*200 - sysNormForce*.5
         if rew<0: rew = 0 
-        """
-        Note that above we are only rewarding the system for moving forward! 
-        This is to NOT penalize movements backward, which may result in system getting 
-        stuck and not back-tracking to remove itself from stuck position
-        """
-        
-        #### Kinetic Energy Reward
-        if self.kineticEnergy and np.mean(self.KE)<1e-4:
-            rew-=5
-            
-        #### Velocity Penalty
-        
-        if self.velocityPenalty:
-            if self.numBots == 10:
-                thresh = 0.075
-            elif self.numBots == 30:
-                thresh = .1
-            if np.mean(self.velRecent)<thresh:
-                rew -= 5
-        
-        # Reward for decreasing the distance to the target
-        # relDistance = 1 - (distanceToTarget/self.startDistance)
-        # rew += relDistance*10
-            
+
         return rew
     
     
     def isDone(self, rew, systemCenter, distanceToTarget):
-        """
-        Can return later on an add penalties for taking too long or other actions we do not want
-        """
         done=False
         if self.timestep>self.maxNumSteps:
             done=True
@@ -558,11 +408,6 @@ class pymunkEnv(Env):
             done=True
             rew+=10
         
-        # if self.timestep > self.distance_horizon:
-        #     if np.all(self.distance_storage==0):
-        #         done=True
-        #         rew -= 10  
-            
         return done, rew
     
     
@@ -670,9 +515,6 @@ class pymunkEnv(Env):
             
         
     def collectAllData(self):
-        """
-        Will collect all data and store in the global list made in __init__ method
-        """
         tempBotPositions = [self.time]
         tempSkinPositions = [self.time]
         tempInteriorPositions = [self.time]
@@ -894,17 +736,6 @@ class Ball:
         self.shape.color = color
         self.shape.friction = friction
         self.shape.collision_type = collisionType
-        space.add(self.body, self.shape)
-    
-class Obstacle:
-    def __init__(self, space, position, radius, friction, color = (0,0,0,255)):
-        self.body = pymunk.Body(body_type = pymunk.Body.STATIC)
-        self.radius = radius
-        self.body.position = position
-        self.shape = pymunk.Circle(self.body, self.radius)
-        self.shape.color = color
-        self.shape.friction = friction
-        self.shape.collision_type = 1
         space.add(self.body, self.shape)
         
 class starObstacle:
@@ -1253,7 +1084,7 @@ def createVideo(saveLoc, imgLoc, videoName, imgShape):
     
 
 
-def createObstacleField(space, obstacleCoordinates, obsRadius, friction, square=False, star=False, report_points=False):
+def createObstacleField(space, obstacleCoordinates, obsRadius, friction, report_points=False):
     """
     Space: The environments PyMunk Space
     obstacleCoordinates: list of cooridnates where the obstacles are

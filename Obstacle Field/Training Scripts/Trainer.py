@@ -9,7 +9,7 @@ if __name__ == '__main__':
     from env_params import *
 
     # Importing RL parameters and dependencies
-    from RL_params_tf1 import *
+    from RL_params import *
 
     # Creating directory to save all results in
     mainDirectory = str(pathlib.Path(__file__).parent.absolute()) # Get the path of this file
@@ -17,9 +17,9 @@ if __name__ == '__main__':
     os.makedirs(savefile, exist_ok=True)
     
     # Importing and saving these files
-    import env_params, RL_params_tf1
+    import env_params, RL_params
     copyfile(master_env.__file__,savefile+'Environment.py'.format(str(experimentNum)))
-    copyfile(RL_params_tf1.__file__,savefile+'RL_params_tf1.py'.format(str(experimentNum)))
+    copyfile(RL_params.__file__,savefile+'RL_params.py'.format(str(experimentNum)))
     copyfile(env_params.__file__,savefile+'env_params.py'.format(str(experimentNum)))
     copyfile(__file__, savefile+'Trainer_tf1.py'.format(str(experimentNum)))
    

@@ -28,12 +28,8 @@ experimentNum = '16c'
         
 # Depending on how many bots there are in the system, 
 # the number of training time steps will vary
-botTrainingSteps = {#3:1_000_000,
-                    10:50_000_000,
-                    # 15:20_000_000,
-                    # 30:30_000_000}d
-                    # 30:50_000_000}
-                    30:10_000_000
+botTrainingSteps = {
+                    10:50_000_000
                     }
 
 
