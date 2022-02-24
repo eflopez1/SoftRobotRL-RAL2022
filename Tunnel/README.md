@@ -10,10 +10,6 @@ The reinforcement learning model. Can be opened with Stable-Baselines.
 
 Contains all videos and plots showing the resultant behaviors learned by the system.
 
-## Tensorboard Log
-
-The tensorboard log used to train the system over all steps.
-
 ## ReRun Scripts
 
 Scripts used to run the agent for post-training results.
